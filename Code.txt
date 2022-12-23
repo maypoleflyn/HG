@@ -1,0 +1,225 @@
+
+All the codes for the genome analysis.
+
+1.0 Genome survey
+# We used Genomescope 2.0 to conduct the genome survey
+## First, Jellfish was used to count the k-mers with this command:
+```
+1) jellyfish count -C -m 21 -s 1000000000 -t 10 *.fastq -o reads.jf
+2) jellyfish histo -t 10 reads.jf > reads.histo
+```
+## Then, the reads.histo was uploaded to the website to genomescope2(http://qb.cshl.edu/genomescope/genomescope2.0/)
+
+# Smudgeplot 
+## Commands:
+```
+   ls *.fastq.gz > FILES
+   kmc -k21 -t16 -m64 -ci1 -cs10000 @FILES kmcdb tmp
+   kmc_tools transform kmcdb histogram kmcdb_k21.hist -cx10000   
+   L=$(smudgeplot.py cutoff kmcdb_k21.hist L)
+   U=$(smudgeplot.py cutoff kmcdb_k21.hist U)
+   echo $L $U 
+   kmc_tools transform kmcdb -ci"$L" -cx"$U" reduce kmcdb_L"$L"_U"$U"
+   smudge_pairs kmcdb_L"$L"_U"$U" kmcdb_L"$L"_U"$U"_coverages.tsv kmcdb_L"$L"_U"$U"_pairs.tsv > kmcdb_L"$L"_U"$U"_familysizes.tsv 
+   smudgeplot.py plot kmcdb_L"$L"_U"$U"_coverages.tsv
+```
+
+2.0 Genome assembly
+# First, Nextdenovo 2.0 (https://github.com/Nextomics/NextDenovo) was used to conduct the genome assembly
+
+The configure file:
+
+```
+[General]
+job_type = local
+job_prefix = nextDenovo
+task = all # 'all', 'correct', 'assemble'
+rewrite = yes # yes/no
+deltmp = yes
+rerun = 3
+parallel_jobs = 1
+input_type = raw
+input_fofn = ./fofn
+workdir = ./lg
+
+[correct_option]
+read_cutoff = 1k
+seed_cutoff = 25k
+blocksize = 1g
+pa_correction = 5
+seed_cutfiles = 5
+sort_options =  -m 5g -t 5 -k 50
+minimap2_options_raw = -x ava-ont -t 8
+correction_options = -p 5
+
+[assemble_option]
+minimap2_options_cns = -x ava-ont -t 8 -k17 -w17
+nextgraph_options = -a 1
+```
+
+# Second, Pilon (https://github.com/broadinstitute/pilon/wiki) was used to polish the genome assembly with six rounds of iteration
+
+The first round:
+
+```
+         bwa index nd.ref.fa
+		 bwa mem -t 100 nd.ref.fa ngs_R1.fq.gz ngs_R2.fq.gz |samtools view -bS ->aligned.bam
+         samtools sort -o aligned.srt.bam aligned.bam
+         samtools index aligned.srt.bam 
+         java -Xmx10G -jar pilon-1.23.jar --genome nd.ref.fa --frags aligned.srt.bam --output nd.ref.pilon.out		 
+```
+
+# Third, annotated the polished genome assembly towards the contigs (Ar.contigs.fa)
+
+       ## Prepare the input for the Marker-P pipeline 
+	   ### Repeat library construction using EDTA (https://github.com/oushujun/EDTA)
+```
+	   perl EDTA.pl --genome Ar.contigs.fa --overwrite 1 --sensitive 1 --anno 1 --evaluate 1 --threads 10
+```
+	   ### Proteins
+	   download the proteins from seven sequenced plants (including Brassica oleracea, Eutrema salsugineu, Alyssum linifolium, Arabidopsis thaliana, Boechera stricta, Capsella rubella and C. grandiflora) and a total of 1,440 benchmarking universal single-copy orthologues from the Embryophyta within BUSCO.
+	
+       ### Transcripts
+```	   
+	   Trinity --seqType fq --left reads_1.fq --right reads_2.fq --CPU 6 --max_memory 20G 
+```	   
+	   
+       ### Training ab initio Gene Predictors
+	   
+           Augustus:
+		   We trained ab initio Gene Predictors (SNAP) according the following link https://vcru.wisc.edu/simonlab/bioinformatics/programs/augustus/docs/tutorial2015/training.html
+       	   SNAP: 
+		   We trained ab initio Gene Predictors (SNAP) according the following link: http://weatherby.genetics.utah.edu/MAKER/wiki/index.php/MAKER_Tutorial_for_GMOD_Online_Training_2014#Training_ab_initio_Gene_Predictors
+	   ## Annotated the contigs using MAKER-P 
+```
+            mpiexc -n 80 maker  
+```
+       We will obtain the annotaion of the polished contigs (Ar.contigs.fa)  
+
+		
+# Identify the syntenic blocks and synlogs using JCVI (https://github.com/tanghaibao/jcvi/wiki/MCscan-(Python-version)) Input file (Ar.ctg.gff)
+```   
+   python -m jcvi.formats.gff bed --type=mRNA --key=Name Ar.ctg.gff -o Ar.ctg.bed
+   python -m jcvi.compara.catalog ortholog Ar.ctg Ar.ctg --no_strip_names --cscore=.99 
+   python -m jcvi.graphics.dotplot Ar.ctg.Ar.ctg.anchors         
+``` 
+
+# Calculate KaKs of the synlogs in the syntenic blocks  
+
+```
+       ParaAT.pl -p processors -a pep.fa -n cds.fa -k kaks -f axt -o kaks.out
+```
+we will obtain the syntenic contigs based on the Ks (syntenic_pair_file)
+
+# Process the HiC reads using juicer pipleline and generate the "Merged_nodup.txt" (https://github.com/aidenlab/juicer)
+
+```
+cd references
+bwa index Ar.contigs.fa
+./generate_site.py MboI Ar.contigs.fa Ar.contigs.fa 
+fastalength Ar.contigs.fa |awk '{print$2"\t"$1}'  >chrom.sizes
+cd ../
+./scripts/juicer.sh -t 50 -d ./ -s MboI -p ./references/chrom.sizes -z references/Ar.contigs.fa -y references/Ar.contigs.fa_MboI.txt -D ./
+
+```
+
+# remove the links across the syntenic contigs
+
+```
+     perl  remove_pair.pl syntenic_pair_file Merged_nodup.txt >filted_Merged_nodup.txt
+``` 
+
+# Scaffolding using the 3D-DNA pipeline
+     
+```
+	  run-asm-pipeline.sh -r 0 Ar.contigs.fa filted_Merged_nodup.txt
+```
+
+# Fine-tuning the genome assembly using juicerbox and generate the final file 
+
+```
+     run-asm-pipeline-post-review.sh -r cns2.FINAL.review1106.assembly Ar.contigs.fa filted_Merged_nodup.txt
+	 
+```
+We will obtain the final file (ref.genome.fa)
+	   
+3.0 subgenome partion
+  
+#  partition and phase subgenomes using subphaser software (https://github.com/zhangrengang/SubPhaser)
+
+
+```
+      subphaser -i ref.genome.fa -c sg.config  -k 13 -q 100 -f 2 
+      subphaser -i ref.genome.fa -c sg.config  -k 15 -q 100 -f 2
+	  subphaser -i ref.genome.fa -c sg.config -k 13 -q 200 -f 2  
+``` 
+4.0 Genome annotation
+
+Annotating the genome assembly using Marker-P pipeline as we described above (2.0)
+
+5.0 Genome evaluation and comparative genomic analysis 
+
+# evaluting the genome/gene sets using BUSCO
+
+# evaluating the genome using LAI
+
+# evaluating the genome using read re-mapping ration
+
+6.0 Genome evolution
+
+# generate orthogroups gene sets using orthofinder software
+
+# 
+
+
+
+7.0 Asymmetrical evolution or subgenome domaniance analysis  
+
+8.0 whole-genome methylation analysis
+
+# aligning the reads to the genome using bismark (https://github.com/FelixKrueger/Bismark)
+
+```
+       bismark_genome_preparation --hisat2 genome_folder 
+	   bismark --genome genome_folder -1 leaf_R1.fq.gz -2 leaf_R2.fq.gz -o leaf.bam
+	   deduplicate_bismark --bam leaf.bam
+	   bismark_methylation_extractor --gzip --bedGraph Leaf_R1_bismark_hisat2_pe.deduplicated.bam
+```
+
+# deeptools (https://deeptools.readthedocs.io/en/develop/)
+
+```
+docker run -v $PWD:/root -w /root dukegcb/deeptools computeMatrix scale-regions -S r.cg.bedGraph.bw \
+ s.cg.bedGraph.bw \
+ l.cg.bedGraph.bw \
+ -R Ar1017.bed --beforeRegionStartLength 3000 --regionBodyLength 5000 --afterRegionStartLength 3000 --skipZeros -o cg.gene.mat.gz -bs 40
+```
+9.0 3D-genomic analysis
+
+# 
+
+
+
+
+
+
+10.0 LTR analysis 
+We conducted the LTR analysis using the in-house pipeline Valcano 
+The description for the pipeline https://maypoleflyn.github.io/2021-02-01-Val/
+User could find the code https://github.com/maypoleflyn/valcano 
+
+
+
+
+
+
+
+
+
+
+
+
+   	   
+	      
+	   
+    
