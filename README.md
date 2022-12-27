@@ -1,9 +1,9 @@
-Horseradish-genome
+# Horseradish-genome
 
 All the codes in the genome analysis could be found in the code.txt.
 
 
-############ The genome file could be found below
+# The genome file could be found below
 
 Ar.cds.fa.gz: CDS file
 
@@ -16,4 +16,6 @@ Ar.gene.gff.gz: Gene models
 lg.1013.fa.gz: Genome Fasta
 
 Ar.interproscan.tsv.gz: Interproscan output
+
+Please contact **Fei Shen (shenf1028@gmail.com)**, if you have any question. 
 
