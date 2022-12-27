@@ -1,9 +1,11 @@
 # Horseradish-genome
 
+# Codes
+
 All the codes in the genome analysis could be found in the code.txt.
 
 
-# The genome file could be found below
+# The genome files could be found below
 
 Ar.cds.fa.gz: CDS file
 
