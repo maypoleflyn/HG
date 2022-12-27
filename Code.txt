@@ -222,6 +222,12 @@ Annotating the genome assembly using Marker-P pipeline as we described above (2.
 ```
    OrthoFinder/orthofinder -f data/
 ```
+# construct the species tree using raxml
+
+```
+  ./standard-RAxML-master/raxmlHPC-PTHREADS-SSE3 -s species.phy -n cinevo -m PROTGAMMALGX -f a -x 12345 -p 12345 -# 100 -T 60 -o Vvin
+```
+
 
 7.0 whole-genome methylation analysis
 
