@@ -161,21 +161,69 @@ Annotating the genome assembly using Marker-P pipeline as we described above (2.
 
 # evaluting the genome/gene sets using BUSCO
 
+```     
+   BUSCO.py -i genome.fa -o busco.out -l ./embryophyta_odb10 -m geno
+   BUSCO.py -i cds.fa -o busco.cds.out -l ./embryophyta_odb10 -m tran
+```
 # evaluating the genome using LAI
 
+ ###To obtain raw input files with LTRharvest and LTR_FINDER_parallel:
+
+```
+   gt suffixerator -db genome.fa -indexname genome.fa -tis -suf -lcp -des -ssp -sds -dna
+   gt ltrharvest -index genome.fa -minlenltr 100 -maxlenltr 7000 -mintsd 4 -maxtsd 6 -motif TGCA -motifmis 1 -similar 85 -vic 10 -seed 20 -seqids yes > genome.fa.harvest.scn
+   LTR_FINDER_parallel -seq genome.fa -threads 10 -harvest_out -size 1000000 -time 300
+   cat genome.fa.harvest.scn genome.fa.finder.combine.scn > genome.fa.rawLTR.scn
+```
+  ## To run LTR_retriever
+```
+   LTR_retriever -genome genome.fa -inharvest genome.fa.rawLTR.scn -threads 10
+```
+  ## To run LAI
+```  
+   LAI -genome genome.fa -intact genome.fa.pass.list -all genome.fa.out
+```
+
 # evaluating the genome using read re-mapping ration
+
+   ## Map Illumina reads to the genome
+```
+      bwa index genome.fa 
+      bwa mem genome.fa read1.fa read2.fa |samtools view -bS-> genome.bam   	  
+```  
+   ## Map Nanopore reads to the genome 
+```
+     minimap2 -x map-ont -o nanopore.sam -a genome.fa reads.fa
+```
+
+# Conduct the genome assembly using Pacbio HIFI
+
+```
+  hifiasm -l 2 -o hifi.asm -t 100 hifi.reads.fa  
+```
+
+# Create an interactive dot plot using dotplotly (https://github.com/tpoorten/dotPlotly)
+
+ ## Map using minimap2
+
+```
+   minimap2 -x asm5 nanopore.genome.fa hifi.contigs.fa > cmp.minimap2.paf
+```
+ ## create dotplot
+
+``` 
+   pafCoordsDotPlotly.R -i cmp.minimap2.paf -o cmp.minimap2.plot -m 2000 -q 500000 -k 10 -s -t -l -p 12 
+```
 
 6.0 Genome evolution
 
 # generate orthogroups gene sets using orthofinder software
 
-# 
+```
+   OrthoFinder/orthofinder -f data/
+```
 
-
-
-7.0 Asymmetrical evolution or subgenome domaniance analysis  
-
-8.0 whole-genome methylation analysis
+7.0 whole-genome methylation analysis
 
 # aligning the reads to the genome using bismark (https://github.com/FelixKrueger/Bismark)
 
@@ -186,7 +234,29 @@ Annotating the genome assembly using Marker-P pipeline as we described above (2.
 	   bismark_methylation_extractor --gzip --bedGraph Leaf_R1_bismark_hisat2_pe.deduplicated.bam
 ```
 
+# Call the methylation using Nanopolish 
+
+##Index the output of the basecaller
+```
+nanopolish index -d /path/to/raw_fast5s/ -s sequencing_summary.txt basecalled_output.fastq # for FAST5 inout
+nanopolish index basecalled_output.fastq --slow5 signals.blow5 # for SLOW5 input
+```
+# Index the draft genome
+```
+bwa index draft.fa
+```
+# Align the basecalled reads to the draft sequence
+```
+bwa mem -x ont2d -t 8 draft.fa reads.fa | samtools sort -o reads.sorted.bam -T reads.tmp -
+samtools index reads.sorted.bam
+nanopolish call-methylation -t 8 -r output.fastq -b output.sorted.bam -g reference.fasta  > methylation_calls.tsv
+scripts/calculate_methylation_frequency.py methylation_calls.tsv > methylation_frequency.tsv
+```
+
 # deeptools (https://deeptools.readthedocs.io/en/develop/)
+
+  ## install the deeptools using docker (https://www.docker.com/)
+  ## run the deeptools to obtain the matrix   
 
 ```
 docker run -v $PWD:/root -w /root dukegcb/deeptools computeMatrix scale-regions -S r.cg.bedGraph.bw \
@@ -194,16 +264,50 @@ docker run -v $PWD:/root -w /root dukegcb/deeptools computeMatrix scale-regions 
  l.cg.bedGraph.bw \
  -R Ar1017.bed --beforeRegionStartLength 3000 --regionBodyLength 5000 --afterRegionStartLength 3000 --skipZeros -o cg.gene.mat.gz -bs 40
 ```
-9.0 3D-genomic analysis
+ ## draw the profile aound the genes 
 
-# 
+```
+    docker run -v $PWD:/root -w /root dukegcb/deeptools  plotProfile  --matrixFile cg.gene.mat.gz --outFileName cg.pdf
+```
+ 
+8.0 3D-genomic analysis
 
+# The clean reads were mapped against their corresponding reference genomes with Juicer software
+```
+./scripts/juicer.sh -t 50 -d ./ -s MboI -p ./references/chrom.sizes -z references/Ar.contigs.fa -y references/Ar.contigs.fa_MboI.txt -D ./
+```
+#The contact matrices were generated at different resolutions (10, 25, 50, 100 kb) using hicConvertFormat in HiCExplorer
 
+```
+ hicConvertFormat -m inter_30.hic --inputFormat hic --outputFormat cool --outFileName jj.cool -r 10000
+ hicConvertFormat -m inter_30.hic --inputFormat hic --outputFormat cool --outFileName jj.cool -r 25000
+ hicConvertFormat -m inter_30.hic --inputFormat hic --outputFormat cool --outFileName jj.cool -r 50000
+ hicConvertFormat -m inter_30.hic --inputFormat hic --outputFormat cool --outFileName jj.cool -r 100000
+```
 
+# The hicPCA program embedded in HiCExplorer was used to delineate A/B compartments at a 50-kb resolution
+```
+   hicPCA --matrix jj.50k.cool --outputFileName A_B --whichEigenvectors 1
+```
+# TAD-like structures were identified using the hicFindTADs program embedded in HiCExplorer at the different resolutions
 
+```
+   hicFindTADs  --matrix  lg_50000.cool --outPrefix 50k --correctForMultipleTesting fdr
+   hicFindTADs  --matrix  lg_10000.cool --outPrefix 10k --correctForMultipleTesting fdr
+   hicFindTADs  --matrix  lg_25000.cool --outPrefix 25k --correctForMultipleTesting fdr
+   hicFindTADs  --matrix  lg_100000.cool --outPrefix 100k --correctForMultipleTesting fdr
+```
 
+#The Fit-Hi-C (v2.05) tool was used to identify the Hi-C interaction peaks at a 10-kb resolution
 
-10.0 LTR analysis 
+```
+  fithic -i fithic.interactionCounts.gz -f fithic.fragmentMappability.gz -r 10000 -x intraOnly
+```
+
+## FDR < 0.00001 and contactCount > 10 were used to obtain the candidate interaction sites.
+ 
+
+9.0 LTR analysis 
 We conducted the LTR analysis using the in-house pipeline Valcano 
 The description for the pipeline https://maypoleflyn.github.io/2021-02-01-Val/
 User could find the code https://github.com/maypoleflyn/valcano 
