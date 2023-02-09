@@ -1,4 +1,4 @@
-# Horseradish-genome
+# HG
 
 # Codes
 
