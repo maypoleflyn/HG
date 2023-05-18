@@ -7,7 +7,9 @@ All the codes in the genome analysis could be found in the code.txt.
 
 # The T2T genome files could be found below in T2T/ and Also Figshare
 
+
 Figshare: Shen, Fei (2023): Horseradish genome. figshare. Media. https://doi.org/10.6084/m9.figshare.21780176.v1
+
 
 T2T/ 
 
@@ -42,9 +44,9 @@ lg.1013.fa.gz: Genome Fasta
 Ar.interproscan.tsv.gz: Interproscan output
 
 all the data could be found in figureshare: 
+
 Shen, Fei (2022): horseradish genome. figshare. Dataset. https://doi.org/10.6084/m9.figshare.20003408.v4
  
 
-
-Please contact **Fei Shen (shenf1028@gmail.com)**, if you have any question. 
+# Please contact **Fei Shen (shenf1028@gmail.com)**, if you have any question. 
 
