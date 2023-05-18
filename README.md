@@ -1,4 +1,4 @@
-# HG
+# T2T gap-free genome assembly of horseradish 
 
 # Codes
 
