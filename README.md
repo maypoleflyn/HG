@@ -29,6 +29,20 @@ T2T.pro.fa.anno: The interproscan annotation
 
 genome assembly file could be found in Figshare.
 
+# LTR-RT analysis/  
+
+The important result files in the LTR-RT analysis:
+
+clustered_full_rt.fa: the sequence file of the clustered LTR-RTs
+
+EDTA.pass.list: The result file from EDTA
+
+full_ltr.ltr.acc: The list contain the LTR-RT accession and the other name
+
+full_ltr.ltr.fa: The full-length LTR-RT fasta file
+
+
+
 # The ONT-based genome assembly could be found in the ONT/
 
 Ar.cds.fa.gz: CDS file
