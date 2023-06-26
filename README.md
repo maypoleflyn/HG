@@ -8,7 +8,7 @@ All the codes in the genome analysis could be found in the code.txt.
 # The T2T genome files could be found below in T2T/ and Also Figshare
 
 
-Figshare: Shen, Fei (2023): Horseradish genome. figshare. Media. https://doi.org/10.6084/m9.figshare.21780176.v1
+Figshare: Shen, Fei (2023): Horseradish genome. figshare. Media. https://doi.org/10.6084/m9.figshare.21780176.v2
 
 
 T2T/ 
@@ -17,11 +17,11 @@ T2T.pro.fa: protein file
 
 T2T.tran.fa: Transcripts file
 
-T2T_chr.final.gff: Gene annotation gff
+T2T.gene.gff: Gene annotation gff
 
-T2T_chr.intact.gff: intact TE gff
+T2T.intactTE.gff: intact TE gff
 
-T2T_chr.TEanno.gff: all the annotation TE in the genome
+T2T.TEanno.gff: all the annotation TE in the genome
 
 T2T.ncRNA.gff: The non-coding RNA gff
 
